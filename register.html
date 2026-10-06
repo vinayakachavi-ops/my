@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account - SecureShare{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card auth-card-wide">
+        <div class="auth-card-header">
+            <div class="auth-icon-badge">
+                <i data-lucide="user-plus"></i>
+            </div>
+            <h2>Create Your Account</h2>
+            <p>New registrations automatically enroll in the secure <strong>Viewer</strong> role</p>
+        </div>
+
+        <form action="{{ url_for('auth.register') }}" method="POST" class="auth-form" id="registerForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <div class="input-with-icon">
+                        <i data-lucide="user" class="input-icon"></i>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username" 
+                            value="{{ username or '' }}"
+                            required 
+                            placeholder="e.g. alex_stone"
+                            autocomplete="username"
+                        >
+                    </div>
+                    <span class="field-hint">3-32 chars, letters, numbers, hyphens, underscores</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-with-icon">
+                        <i data-lucide="mail" class="input-icon"></i>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            value="{{ email or '' }}"
+                            required 
+                            placeholder="name@company.com"
+                            autocomplete="email"
+                        >
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="reg_password">Password</label>
+                    <div class="input-with-icon">
+                        <i data-lucide="key" class="input-icon"></i>
+                        <input 
+                            type="password" 
+                            id="reg_password" 
+                            name="password" 
+                            required 
+                            placeholder="••••••••••••"
+                            autocomplete="new-password"
+                        >
+                        <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('reg_password', this)">
+                            <i data-lucide="eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password</label>
+                    <div class="input-with-icon">
+                        <i data-lucide="check" class="input-icon"></i>
+                        <input 
+                            type="password" 
+                            id="confirm_password" 
+                            name="confirm_password" 
+                            required 
+                            placeholder="••••••••••••"
+                            autocomplete="new-password"
+                        >
+                    </div>
+                </div>
+            </div>
+
+            <!-- Password Requirements Checklist -->
+            <div class="password-strength-box">
+                <div class="strength-meter-label">Password Security Requirements:</div>
+                <div class="strength-bar-track">
+                    <div class="strength-bar-fill" id="strengthBar"></div>
+                </div>
+                <ul class="strength-requirements" id="strengthList">
+                    <li id="rule-length" class="rule-item"><i data-lucide="circle"></i> At least 8 characters</li>
+                    <li id="rule-upper" class="rule-item"><i data-lucide="circle"></i> One uppercase letter (A-Z)</li>
+                    <li id="rule-lower" class="rule-item"><i data-lucide="circle"></i> One lowercase letter (a-z)</li>
+                    <li id="rule-digit" class="rule-item"><i data-lucide="circle"></i> One numeric digit (0-9)</li>
+                    <li id="rule-special" class="rule-item"><i data-lucide="circle"></i> One special character (!@#$%^&*...)</li>
+                </ul>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btnRegister">
+                <span>Register Account</span>
+                <i data-lucide="user-check"></i>
+            </button>
+        </form>
+
+        <div class="auth-card-footer">
+            <p>Already have an account? <a href="{{ url_for('auth.login') }}">Log in here</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}

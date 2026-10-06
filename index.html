@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Encrypted Files Vault - SecureShare{% endblock %}
+
+{% block content %}
+<div class="files-page">
+    <div class="page-top-bar">
+        <div>
+            <h1>Encrypted File Vault</h1>
+            <p>All stored files are encrypted at rest with Fernet (AES-128-CBC + HMAC-SHA256). Decryption occurs exclusively in-memory upon authorized request.</p>
+        </div>
+
+        <div class="top-actions">
+            {% if user.can_upload() %}
+            <button class="btn btn-primary" onclick="openUploadModal()">
+                <i data-lucide="upload-cloud"></i>
+                <span>Upload Encrypted File</span>
+            </button>
+            {% else %}
+            <div class="permission-pill-disabled" title="Only Editors and Admins may upload">
+                <i data-lucide="lock"></i>
+                <span>Upload Restricted (Viewer Role)</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="filter-bar">
+        <div class="search-input-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="fileSearchInput" placeholder="Search files by name or uploader..." onkeyup="filterFilesTable()">
+        </div>
+        <div class="file-count-badge">
+            <span id="fileCountDisplay">{{ files|length }}</span> file(s) available
+        </div>
+    </div>
+
+    <!-- Files Table -->
+    <div class="table-card">
+        {% if files %}
+        <table class="data-table" id="filesTable">
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Security</th>
+                    <th>Size</th>
+                    <th>Uploader</th>
+                    <th>Uploaded Date (UTC)</th>
+                    <th>Integrity (SHA-256)</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in files %}
+                <tr class="file-row">
+                    <td class="file-name-cell">
+                        <div class="file-icon-box">
+                            <i data-lucide="file-text"></i>
+                        </div>
+                        <div class="file-info-stack">
+                            <span class="file-primary-name" title="{{ f.original_filename }}">{{ f.original_filename }}</span>
+                            <span class="file-mime">{{ f.mime_type }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="enc-badge">
+                            <i data-lucide="lock"></i>
+                            AES-256
+                        </span>
+                    </td>
+                    <td class="col-mono">
+                        {% if f.file_size < 1024 %}
+                            {{ f.file_size }} B
+                        {% elif f.file_size < 1048576 %}
+                            {{ (f.file_size / 1024)|round(1) }} KB
+                        {% else %}
+                            {{ (f.file_size / 1048576)|round(2) }} MB
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="uploader-chip">
+                            <i data-lucide="user"></i>
+                            {{ f.uploader.username if f.uploader else 'Unknown' }}
+                        </span>
+                    </td>
+                    <td class="col-mono">{{ f.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="col-mono">
+                        <span class="checksum-hash" title="Full SHA-256: {{ f.checksum }}">
+                            {{ f.checksum[:10] }}...
+                        </span>
+                    </td>
+                    <td class="text-right actions-cell">
+                        <div class="action-btn-group">
+                            <!-- Preview button -->
+                            {% if user.can_view() %}
+                            <button 
+                                class="btn-action-icon" 
+                                title="In-Memory Preview" 
+                                onclick="previewFile({{ f.id }}, '{{ f.original_filename }}')"
+                            >
+                                <i data-lucide="eye"></i>
+                            </button>
+                            {% endif %}
+
+                            <!-- Download button -->
+                            {% if user.can_download() %}
+                            <a 
+                                href="{{ url_for('files.download', file_id=f.id) }}" 
+                                class="btn-action-icon" 
+                                title="Decrypt & Download"
+                            >
+                                <i data-lucide="download"></i>
+                            </a>
+                            {% endif %}
+
+                            <!-- Delete button (Admin or Owner) -->
+                            {% if user.can_manage_users() or f.uploader_id == user.id %}
+                            <form action="{{ url_for('files.delete', file_id=f.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to permanently delete \'{{ f.original_filename }}\'?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-action-icon btn-danger-icon" title="Delete File">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon-shield">
+                <i data-lucide="folder-open"></i>
+            </div>
+            <h3>No Encrypted Files Yet</h3>
+            <p>
+                {% if user.can_upload() %}
+                    Upload your first document to secure it with AES-256 encryption.
+                {% else %}
+                    No files have been shared yet. As a Viewer, you will be able to view and download files once uploaded.
+                {% endif %}
+            </p>
+            {% if user.can_upload() %}
+            <button class="btn btn-primary" onclick="openUploadModal()">
+                <i data-lucide="upload-cloud"></i>
+                <span>Upload First File</span>
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Upload Modal (Editor / Admin only) -->
+{% if user.can_upload() %}
+<div class="modal-backdrop" id="uploadModal" style="display: none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <div class="modal-title-row">
+                <div class="modal-icon-badge">
+                    <i data-lucide="upload-cloud"></i>
+                </div>
+                <div>
+                    <h3>Upload & Encrypt Document</h3>
+                    <p>Files are encrypted before writing to storage.</p>
+                </div>
+            </div>
+            <button class="modal-close-btn" onclick="closeUploadModal()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('files.upload') }}" method="POST" enctype="multipart/form-data" class="modal-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="dropzone-area" id="dropzoneArea">
+                <i data-lucide="file-up" class="dropzone-icon"></i>
+                <div class="dropzone-text">
+                    <strong>Drag and drop file here</strong> or <label for="fileInput" class="browse-link">browse</label>
+                </div>
+                <input type="file" id="fileInput" name="file" required onchange="handleFileSelect(this)" style="display:none;">
+                <div class="selected-file-info" id="selectedFileInfo" style="display:none;">
+                    <i data-lucide="file-check"></i>
+                    <span id="selectedFileName"></span>
+                    <span id="selectedFileSize" class="file-size-tag"></span>
+                </div>
+            </div>
+
+            <div class="upload-security-meta">
+                <div class="meta-row">
+                    <span class="meta-label">Encryption:</span>
+                    <span class="meta-val">AES-128-CBC + HMAC-SHA256 (Fernet)</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Max File Size:</span>
+                    <span class="meta-val">{{ max_file_size_mb }} MB</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Permitted Types:</span>
+                    <span class="meta-val code-list">{{ allowed_extensions | join(', ') }}</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeUploadModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="btnSubmitUpload">
+                    <i data-lucide="lock"></i>
+                    <span>Encrypt & Store</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- In-Memory Preview Modal -->
+<div class="modal-backdrop" id="previewModal" style="display: none;">
+    <div class="modal-dialog modal-dialog-large">
+        <div class="modal-header">
+            <div class="modal-title-row">
+                <div class="modal-icon-badge">
+                    <i data-lucide="file-search"></i>
+                </div>
+                <div>
+                    <h3 id="previewTitle">Document Preview</h3>
+                    <p class="preview-secure-tag">Decrypted in volatile memory only</p>
+                </div>
+            </div>
+            <button class="modal-close-btn" onclick="closePreviewModal()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <div class="modal-body" id="previewBody">
+            <div class="loading-spinner-box">
+                <div class="spinner"></div>
+                <p>Decrypting file in memory...</p>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closePreviewModal()">Close</button>
+            <a href="#" id="previewDownloadBtn" class="btn btn-primary">
+                <i data-lucide="download"></i>
+                <span>Download Decrypted File</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/files.js') }}"></script>
+{% endblock %}

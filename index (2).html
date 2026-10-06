@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - SecureShare{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-top-bar">
+        <div>
+            <h1>Administrative Control Panel</h1>
+            <p>Manage user credentials, role hierarchy assignments, and inspect security audit logs.</p>
+        </div>
+
+        <div class="top-actions">
+            <button class="btn btn-primary" onclick="openAddUserModal()">
+                <i data-lucide="user-plus"></i>
+                <span>Add User Account</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Admin Navigation Tabs -->
+    <div class="admin-tabs">
+        <button class="tab-btn active" onclick="switchAdminTab('usersTab', this)">
+            <i data-lucide="users"></i>
+            <span>User Management & RBAC</span>
+            <span class="tab-pill">{{ users|length }}</span>
+        </button>
+        <button class="tab-btn" onclick="switchAdminTab('auditTab', this)">
+            <i data-lucide="shield-alert"></i>
+            <span>Security Audit Trail</span>
+            <span class="tab-pill">{{ logs|length }}</span>
+        </button>
+    </div>
+
+    <!-- TAB 1: User Management -->
+    <div class="tab-content" id="usersTab">
+        <div class="table-card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Current Role</th>
+                        <th>Status</th>
+                        <th>Joined (UTC)</th>
+                        <th>Change Role</th>
+                        <th class="text-right">Account Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar-circle">
+                                    {{ u.username[0]|upper }}
+                                </div>
+                                <div class="user-name-stack">
+                                    <strong>{{ u.username }}</strong>
+                                    {% if u.id == current_admin.id %}
+                                    <span class="badge-you">(You)</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ u.email }}</td>
+                        <td>
+                            <span class="role-badge role-{{ u.role|lower }}">
+                                <i data-lucide="shield"></i>
+                                {{ u.role }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if u.is_active %}
+                            <span class="status-badge status-active">
+                                <i data-lucide="check-circle-2"></i>
+                                Active
+                            </span>
+                            {% else %}
+                            <span class="status-badge status-deactivated">
+                                <i data-lucide="ban"></i>
+                                Deactivated
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="col-mono">{{ u.id }}</td>
+                        <td>
+                            <!-- Role change form -->
+                            {% if current_admin.can_assign_roles() %}
+                            <form action="{{ url_for('admin.change_role', user_id=u.id) }}" method="POST" class="inline-role-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <select name="role" class="select-role" onchange="this.form.submit()">
+                                    <option value="Viewer" {% if u.role == 'Viewer' %}selected{% endif %}>Viewer</option>
+                                    <option value="Editor" {% if u.role == 'Editor' %}selected{% endif %}>Editor</option>
+                                    <option value="Admin" {% if u.role == 'Admin' %}selected{% endif %}>Admin</option>
+                                </select>
+                            </form>
+                            {% else %}
+                            <span>{{ u.role }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <!-- Toggle active/deactivate -->
+                            {% if u.id == current_admin.id %}
+                                <span class="text-muted" title="You cannot deactivate your own account">Self</span>
+                            {% else %}
+                                <form action="{{ url_for('admin.toggle_status', user_id=u.id) }}" method="POST" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    {% if u.is_active %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate user from logging in">
+                                        <i data-lucide="user-x"></i>
+                                        <span>Deactivate</span>
+                                    </button>
+                                    {% else %}
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Reactivate user access">
+                                        <i data-lucide="user-check"></i>
+                                        <span>Activate</span>
+                                    </button>
+                                    {% endif %}
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: Audit Trail -->
+    <div class="tab-content" id="auditTab" style="display: none;">
+        <div class="table-card">
+            <div class="audit-filter-bar">
+                <input type="text" id="auditFilterInput" placeholder="Filter audit logs by action, username, or IP..." onkeyup="filterAuditTable()">
+            </div>
+            <table class="data-table" id="auditTable">
+                <thead>
+                    <tr>
+                        <th>Timestamp (UTC)</th>
+                        <th>Action</th>
+                        <th>Actor</th>
+                        <th>IP Address</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr class="audit-row">
+                        <td class="col-mono">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            <span class="action-tag tag-{{ log.action|lower }}">
+                                {{ log.action }}
+                            </span>
+                        </td>
+                        <td><strong>{{ log.username or 'Anonymous' }}</strong></td>
+                        <td class="col-mono">{{ log.ip_address or '-' }}</td>
+                        <td class="col-details">{{ log.details or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-backdrop" id="addUserModal" style="display: none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <div class="modal-title-row">
+                <div class="modal-icon-badge">
+                    <i data-lucide="user-plus"></i>
+                </div>
+                <div>
+                    <h3>Create New User Account</h3>
+                    <p>Assign credentials and initial role privileges</p>
+                </div>
+            </div>
+            <button class="modal-close-btn" onclick="closeAddUserModal()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <form action="{{ url_for('admin.create_user') }}" method="POST" class="modal-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label for="admin_username">Username</label>
+                <input type="text" id="admin_username" name="username" required placeholder="e.g. j_doe">
+            </div>
+
+            <div class="form-group">
+                <label for="admin_email">Email Address</label>
+                <input type="email" id="admin_email" name="email" required placeholder="user@company.com">
+            </div>
+
+            <div class="form-group">
+                <label for="admin_role">Assigned Role</label>
+                <select id="admin_role" name="role" class="form-select">
+                    <option value="Viewer">Viewer (View & Download only)</option>
+                    <option value="Editor">Editor (View, Download, & Upload)</option>
+                    <option value="Admin">Admin (Full Control, RBAC, User Management)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="admin_password">Initial Password</label>
+                <input type="password" id="admin_password" name="password" required placeholder="Must satisfy security requirements">
+                <span class="field-hint">Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char</span>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeAddUserModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="user-check"></i>
+                    <span>Create User</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

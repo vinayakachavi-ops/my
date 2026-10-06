@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SecureShare{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <!-- Top Welcome Banner -->
+    <div class="dashboard-hero">
+        <div class="hero-content">
+            <div class="hero-role-chip role-{{ user.role | lower }}">
+                <i data-lucide="shield"></i>
+                <span>{{ user.role }} Privilege Tier</span>
+            </div>
+            <h1>Welcome back, <span class="highlight">{{ user.username }}</span></h1>
+            <p class="hero-subtitle">
+                {% if user.role == 'Admin' %}
+                    Full administrative privileges: user management, role assignments, file encryption, upload, and downloads.
+                {% elif user.role == 'Editor' %}
+                    Elevated privileges: file uploads, encrypted storage, previews, and downloads.
+                {% else %}
+                    Restricted viewer access: view encrypted catalog, preview, and download documents.
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="hero-permissions-card">
+            <h3>Your Active Capabilities (Polymorphic RBAC)</h3>
+            <ul class="permission-check-list">
+                <li class="perm-item {% if user.can_view() %}perm-granted{% else %}perm-denied{% endif %}">
+                    <i data-lucide="{% if user.can_view() %}check-circle-2{% else %}x-circle{% endif %}"></i>
+                    <span>can_view()</span>
+                </li>
+                <li class="perm-item {% if user.can_download() %}perm-granted{% else %}perm-denied{% endif %}">
+                    <i data-lucide="{% if user.can_download() %}check-circle-2{% else %}x-circle{% endif %}"></i>
+                    <span>can_download()</span>
+                </li>
+                <li class="perm-item {% if user.can_upload() %}perm-granted{% else %}perm-denied{% endif %}">
+                    <i data-lucide="{% if user.can_upload() %}check-circle-2{% else %}x-circle{% endif %}"></i>
+                    <span>can_upload()</span>
+                </li>
+                <li class="perm-item {% if user.can_manage_users() %}perm-granted{% else %}perm-denied{% endif %}">
+                    <i data-lucide="{% if user.can_manage_users() %}check-circle-2{% else %}x-circle{% endif %}"></i>
+                    <span>can_manage_users()</span>
+                </li>
+                <li class="perm-item {% if user.can_assign_roles() %}perm-granted{% else %}perm-denied{% endif %}">
+                    <i data-lucide="{% if user.can_assign_roles() %}check-circle-2{% else %}x-circle{% endif %}"></i>
+                    <span>can_assign_roles()</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon icon-blue">
+                <i data-lucide="lock"></i>
+            </div>
+            <div class="stat-meta">
+                <span class="stat-value">{{ total_files }}</span>
+                <span class="stat-label">Total Encrypted Files</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon icon-purple">
+                <i data-lucide="file-up"></i>
+            </div>
+            <div class="stat-meta">
+                <span class="stat-value">{{ my_files_count }}</span>
+                <span class="stat-label">Files Uploaded by You</span>
+            </div>
+        </div>
+
+        {% if user.can_manage_users() %}
+        <div class="stat-card">
+            <div class="stat-icon icon-amber">
+                <i data-lucide="users"></i>
+            </div>
+            <div class="stat-meta">
+                <span class="stat-value">{{ total_users }}</span>
+                <span class="stat-label">System Accounts</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="stat-card">
+            <div class="stat-icon icon-green">
+                <i data-lucide="key-round"></i>
+            </div>
+            <div class="stat-meta">
+                <span class="stat-value">Fernet / AES-256</span>
+                <span class="stat-label">Encryption Cipher</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Allowed Actions Section -->
+    <div class="section-container">
+        <div class="section-header">
+            <h2>Authorized Operations</h2>
+            <p>Actions enabled for your role</p>
+        </div>
+        <div class="action-tiles-grid">
+            {% for action in allowed_actions %}
+            <a href="{{ action.url }}" class="action-tile">
+                <div class="action-tile-icon">
+                    <i data-lucide="{{ action.icon }}"></i>
+                </div>
+                <div class="action-tile-body">
+                    <h3>{{ action.name }}</h3>
+                    <p>{{ action.desc }}</p>
+                </div>
+                <div class="action-tile-arrow">
+                    <i data-lucide="chevron-right"></i>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recent Activity / Audit Log Preview -->
+    <div class="section-container">
+        <div class="section-header">
+            <h2>Recent Security Activity</h2>
+            <p>{% if user.can_manage_users() %}System-wide audit events{% else %}Your recent session actions{% endif %}</p>
+        </div>
+        <div class="table-card">
+            {% if recent_activity %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>User</th>
+                        <th>Details</th>
+                        <th>Timestamp (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in recent_activity %}
+                    <tr>
+                        <td>
+                            <span class="action-tag tag-{{ item.action | lower }}">
+                                {{ item.action }}
+                            </span>
+                        </td>
+                        <td>{{ item.username or 'Anonymous' }}</td>
+                        <td class="col-details">{{ item.details }}</td>
+                        <td class="col-mono">{{ item.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="activity"></i>
+                <p>No recent activity recorded.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

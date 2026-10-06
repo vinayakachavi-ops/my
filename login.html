@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Log In - SecureShare{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-card-header">
+            <div class="auth-icon-badge">
+                <i data-lucide="lock"></i>
+            </div>
+            <h2>Secure Sign In</h2>
+            <p>Access your encrypted files and role dashboard</p>
+        </div>
+
+        <form action="{{ url_for('auth.login', next=request.args.get('next')) }}" method="POST" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label for="identifier">Username or Email</label>
+                <div class="input-with-icon">
+                    <i data-lucide="user" class="input-icon"></i>
+                    <input 
+                        type="text" 
+                        id="identifier" 
+                        name="identifier" 
+                        required 
+                        placeholder="e.g. admin or viewer@domain.com"
+                        autocomplete="username"
+                        autofocus
+                    >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-with-icon">
+                    <i data-lucide="key" class="input-icon"></i>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        placeholder="••••••••••••"
+                        autocomplete="current-password"
+                    >
+                    <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('password', this)">
+                        <i data-lucide="eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+                <span>Sign In Securely</span>
+                <i data-lucide="arrow-right"></i>
+            </button>
+        </form>
+
+        <div class="auth-card-footer">
+            <p>Don't have an account? <a href="{{ url_for('auth.register') }}">Create an account</a></p>
+            <div class="seed-hint">
+                <i data-lucide="info"></i>
+                <span>Default Admin: <strong>admin</strong> | <strong>Admin@12345</strong></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}403 - Access Denied - SecureShare{% endblock %}
+
+{% block content %}
+<div class="error-wrapper">
+    <div class="error-card">
+        <div class="error-shield-badge">
+            <i data-lucide="shield-alert"></i>
+        </div>
+        <div class="error-code">403</div>
+        <h2>Access Denied</h2>
+        
+        <p class="error-desc">
+            {{ error_message or "You do not have the required role privileges to access this resource or perform this action." }}
+        </p>
+
+        {% if required_permission %}
+        <div class="permission-required-box">
+            <span class="perm-title">Missing Capability:</span>
+            <code>can_{{ required_permission }}()</code>
+        </div>
+        {% endif %}
+
+        {% if current_user %}
+        <div class="current-role-info">
+            <span>Your current role:</span>
+            <span class="role-badge role-{{ current_user.role|lower }}">{{ current_user.role }}</span>
+        </div>
+        {% endif %}
+
+        <div class="error-actions">
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+                <i data-lucide="arrow-left"></i>
+                <span>Return to Dashboard</span>
+            </a>
+            <a href="{{ url_for('files.index') }}" class="btn btn-outline">
+                <i data-lucide="folder-lock"></i>
+                <span>View Encrypted Files</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
